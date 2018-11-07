@@ -85,7 +85,7 @@ def response_formater(status_code='400',
                     api_response['headers']['Access-Control-Allow-Origin'] = current_origin
                     logging.debug('api origin match found: %s' % current_origin)
                     break
-            else
+            else:
                 # Set the first origin header in the list, which will cause a CORS mismatch failure client-side
                 api_response['headers']['Access-Control-Allow-Origin'] = origins[0].strip()
                 logging.debug('api origin mismatch: %s' % original_request['headers'].get('Origin'))

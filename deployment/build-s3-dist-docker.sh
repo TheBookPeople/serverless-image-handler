@@ -128,6 +128,7 @@ cp -f /usr/bin/pngcrush $VIRTUAL_ENV
 cp -f /usr/bin/gifsicle $VIRTUAL_ENV
 cp -f /usr/bin/pngquant $VIRTUAL_ENV
 cp -f /usr/lib64/libimagequant.so* $VIRTUAL_ENV/bin/lib
+cp -f /usr/lib64/libpng15.so* $VIRTUAL_ENV/bin/lib
 
 #building mozjpeg
 cd $VIRTUAL_ENV

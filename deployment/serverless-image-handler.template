@@ -475,8 +475,8 @@ Resources:
             # SO-SIH-161 - 07/26/2018 - Improving CF hit rate
             # Allow CF to use same version for different Accept header values
             # https://github.com/awslabs/serverless-image-handler/issues/32
-            # Headers:
-            #   - Accept
+            Headers:
+              - Origin
             QueryString: 'false'
             Cookies:
               Forward: none

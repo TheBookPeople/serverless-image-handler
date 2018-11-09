@@ -72,26 +72,26 @@ def response_formater(status_code='400',
     }
 
     if str(os.environ.get('ENABLE_CORS')).upper() == "YES":
-        logging.info('api cors enabled')
+        logging.info('api cors enabled using origin(s): %s' % str(os.environ.get('CORS_ORIGIN')))
         # If CORS_ORIGIN contains no commas or '*' (single origin)
         if re.match(r"^http[://A-Za-z0-9.-]+$|^\*$", str(os.environ.get('CORS_ORIGIN'))):
             api_response['headers']['Access-Control-Allow-Origin'] = os.environ.get('CORS_ORIGIN')
             logging.debug('api origin hard set: %s' % str(os.environ.get('CORS_ORIGIN')))
         # If CORS_ORIGIN contains commas (multiple origins)
-        if re.match(r"[,]", str(os.environ.get('CORS_ORIGIN'))):
+        elif re.match(r"[,]", str(os.environ.get('CORS_ORIGIN'))):
             logging.debug('api multiple origins detected: %s' % str(os.environ.get('CORS_ORIGIN')))
             origins = str(os.environ.get('CORS_ORIGIN')).split(",")
-            for i in range(len(origins)) :
+            for i in range(len(origins)):
                 current_origin = origins[i].strip()
                 logging.debug('api origin trying match: %s' % current_origin)
                 if original_request['headers'].get('Origin') == current_origin:
                     api_response['headers']['Access-Control-Allow-Origin'] = current_origin
                     logging.debug('api origin match found: %s' % current_origin)
                     break
-            else:
-                # Set the first origin header in the list, which will cause a CORS mismatch failure client-side
-                api_response['headers']['Access-Control-Allow-Origin'] = origins[0].strip()
-                logging.debug('api origin mismatch: %s' % original_request['headers'].get('Origin'))
+        else:
+            # Set the first origin header in the list, which will cause a CORS mismatch failure client-side
+            api_response['headers']['Access-Control-Allow-Origin'] = origins[0].strip()
+            logging.debug('api origin mismatch: %s' % original_request['headers'].get('Origin'))
 
     if int(status_code) != 200:
         api_response['body'] = json.dumps(body)
@@ -305,7 +305,7 @@ def request_thumbor(original_request, session):
     http_path = original_request['path']
     logging.debug('original_request path: %s' % (http_path))
     try:
-        http_path = rewrite(http_path);
+        http_path = rewrite(http_path)
         logging.debug('http path after rewrite: %s' % (http_path))
         http_path = true_url(http_path)
     except Exception as error:

@@ -61,6 +61,7 @@ def response_formater(status_code='400',
                       expires='',
                       etag='',
                       date='',
+                      request_origin='',
                       vary=False
                       ):
 
@@ -85,7 +86,7 @@ def response_formater(status_code='400',
             for i in range(len(origins)):
                 current_origin = origins[i].strip()
                 logging.debug('api origin trying match: %s' % current_origin)
-                if original_request['headers'].get('Origin') == current_origin:
+                if request_origin == current_origin:
                     # Found a match
                     api_response['headers']['Access-Control-Allow-Origin'] = current_origin
                     logging.debug('api origin match found: %s' % current_origin)
@@ -93,7 +94,7 @@ def response_formater(status_code='400',
             else:
                 # No match - set the first origin found in the list; will cause a CORS failure
                 api_response['headers']['Access-Control-Allow-Origin'] = origins[0].strip()
-                logging.debug('api origin mismatch: %s' % original_request['headers'].get('Origin'))
+                logging.debug('api origin mismatch: %s' % request_origin)
         else:
             # Set the raw CORS_ORIGIN in the response as a measure of last resort (previous behavior)
             api_response['headers']['Access-Control-Allow-Origin'] = os.environ.get('CORS_ORIGIN').lower()
@@ -320,9 +321,11 @@ def request_thumbor(original_request, session):
     vary, request_headers = auto_webp(original_request, request_headers)
     return session.get(unix_path + http_path, headers=request_headers), vary
 
-def process_thumbor_responde(thumbor_response, vary):
+def process_thumbor_responde(thumbor_response, vary, request_origin):
      if thumbor_response.status_code != 200:
-         return response_formater(status_code=thumbor_response.status_code)
+         return response_formater(status_code=thumbor_response.status_code,
+                                 request_origin=request_origin
+                                 )
      if vary:
          vary = thumbor_response.headers['vary']
      content_type = thumbor_response.headers['content-type']
@@ -335,10 +338,13 @@ def process_thumbor_responde(thumbor_response, vary):
      if (content_length > 6000000):
         return response_formater(status_code='500',
                                  body={'message': 'body size is too long'},
+                                 request_origin=request_origin
                                  )
      if body is None:
          return response_formater(status_code='500',
-                                  cache_control='no-cache,no-store')
+                                  cache_control='no-cache,no-store',
+                                  request_origin=request_origin
+                                  )
      return response_formater(status_code='200',
                               body=body,
                               cache_control=thumbor_response.headers['Cache-Control'],
@@ -346,6 +352,7 @@ def process_thumbor_responde(thumbor_response, vary):
                               expires=thumbor_response.headers['Expires'],
                               etag=thumbor_response.headers['Etag'],
                               date=thumbor_response.headers['Date'],
+                              request_origin=request_origin,
                               vary=vary
                               )
 
@@ -354,7 +361,7 @@ def call_thumbor(original_request):
     if thumbor_down:
         return thumbor_down
     thumbor_response, vary = request_thumbor(original_request, session)
-    return process_thumbor_responde(thumbor_response, vary)
+    return process_thumbor_responde(thumbor_response, vary, original_request['headers'].get('Origin'))
 
 def lambda_handler(event, context):
     """
@@ -374,7 +381,9 @@ def lambda_handler(event, context):
 
         if event['requestContext']['httpMethod'] != 'GET' and\
            event['requestContext']['httpMethod'] != 'HEAD':
-            return response_formater(status_code=405)
+            return response_formater(status_code=405,
+                                     request_origin=event['headers'].get('Origin')
+                                     )
         result = call_thumbor(event)
         if str(os.environ.get('SEND_ANONYMOUS_DATA')).upper() == 'YES':
             send_metrics(event, result, start_time)
@@ -383,4 +392,6 @@ def lambda_handler(event, context):
         logging.error('lambda_handler error: %s' % (error))
         logging.error('lambda_handler trace: %s' % traceback.format_exc())
         return response_formater(status_code='500',
-                                 cache_control='no-cache,no-store')
+                                 cache_control='no-cache,no-store',
+                                 request_origin=event['headers'].get('Origin')
+                                 )

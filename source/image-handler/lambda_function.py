@@ -72,26 +72,32 @@ def response_formater(status_code='400',
     }
 
     if str(os.environ.get('ENABLE_CORS')).upper() == "YES":
-        logging.info('api cors enabled using origin(s): %s' % str(os.environ.get('CORS_ORIGIN')))
+        cors_origin = str(os.environ.get('CORS_ORIGIN')).lower()
+        logging.info('api cors enabled using origin(s): %s' % cors_origin)
         # If CORS_ORIGIN contains no commas or '*' (single origin)
-        if re.match(r"^http[://A-Za-z0-9.-]+$|^\*$", str(os.environ.get('CORS_ORIGIN'))):
-            api_response['headers']['Access-Control-Allow-Origin'] = os.environ.get('CORS_ORIGIN')
-            logging.debug('api origin hard set: %s' % str(os.environ.get('CORS_ORIGIN')))
+        if re.match(r"^http[://A-Za-z0-9.-]+$|^\*$", cors_origin):
+            api_response['headers']['Access-Control-Allow-Origin'] = os.environ.get('CORS_ORIGIN').lower()
+            logging.debug('api origin hard set: %s' % cors_origin)
         # If CORS_ORIGIN contains commas (multiple origins)
-        elif re.match(r"[,]", str(os.environ.get('CORS_ORIGIN'))):
-            logging.debug('api multiple origins detected: %s' % str(os.environ.get('CORS_ORIGIN')))
-            origins = str(os.environ.get('CORS_ORIGIN')).split(",")
+        elif re.search(r"[,]", cors_origin):
+            logging.debug('api multiple origins detected: %s' % cors_origin)
+            origins = cors_origin.split(",")
             for i in range(len(origins)):
                 current_origin = origins[i].strip()
                 logging.debug('api origin trying match: %s' % current_origin)
                 if original_request['headers'].get('Origin') == current_origin:
+                    # Found a match
                     api_response['headers']['Access-Control-Allow-Origin'] = current_origin
                     logging.debug('api origin match found: %s' % current_origin)
                     break
+            else:
+                # No match - set the first origin found in the list; will cause a CORS failure
+                api_response['headers']['Access-Control-Allow-Origin'] = origins[0].strip()
+                logging.debug('api origin mismatch: %s' % original_request['headers'].get('Origin'))
         else:
-            # Set the first origin header in the list, which will cause a CORS mismatch failure client-side
-            api_response['headers']['Access-Control-Allow-Origin'] = origins[0].strip()
-            logging.debug('api origin mismatch: %s' % original_request['headers'].get('Origin'))
+            # Set the raw CORS_ORIGIN in the response as a measure of last resort (previous behavior)
+            api_response['headers']['Access-Control-Allow-Origin'] = os.environ.get('CORS_ORIGIN').lower()
+            logging.debug('api using default origin of: %s' % cors_origin)
 
     if int(status_code) != 200:
         api_response['body'] = json.dumps(body)
